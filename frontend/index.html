@@ -3,26 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Выбор факультета</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Рекомендация факультетов для абитуриентов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .question {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .hint {
+            font-size: 0.9em;
+            color: #666;
+            font-style: italic;
+        }
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 60px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 20px auto;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        #results {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 5px;
+            white-space: pre-line;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Программа помощи в выборе факультета</h1>
-        <form method="POST">
-            {% for q_idx, question in enumerate(questions) %}
-                <div class="question">
-                    <h3>Вопрос {{ q_idx + 1 }}: {{ question.question }}</h3>
-                    {% for opt_idx, option in enumerate(question.options) %}
-                        <label>
-                            <input type="radio" name="q{{ q_idx }}" value="{{ opt_idx }}" required>
-                            {{ option }}
-                        </label><br>
-                    {% endfor %}
-                </div>
-            {% endfor %}
-            <button type="submit">Получить результат</button>
-        </form>
+    <h1>Рекомендация факультетов для абитуриентов</h1>
+
+    <div id="questions-container">
+        <!-- Вопросы будут добавлены через JavaScript -->
     </div>
+
+    <button id="submit-btn">Получить рекомендации</button>
+
+    <div class="loading" id="loading">
+        <p>Анализируем ваши ответы...</p>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const questionsContainer = document.getElementById('questions-container');
+            const submitBtn = document.getElementById('submit-btn');
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+
+            // Загружаем вопросы с сервера
+            fetch('http://localhost:5000/api/questions')
+                .then(response => response.json())
+                .then(questions => {
+                    questions.forEach(q => {
+                        const questionDiv = document.createElement('div');
+                        questionDiv.className = 'question';
+
+                        questionDiv.innerHTML = `
+                            <h3>${q.text}</h3>
+                            <p class="hint">${q.hint}</p>
+                            <textarea id="answer-${q.id}" placeholder="Введите ваш ответ..."></textarea>
+                        `;
+
+                        questionsContainer.appendChild(questionDiv);
+                    });
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки вопросов:', error);
+                    questionsContainer.innerHTML = '<p>Не удалось загрузить вопросы. Пожалуйста, обновите страницу.</p>';
+                });
+
+            // Обработка отправки ответов
+            submitBtn.addEventListener('click', function() {
+                const answers = [];
+                let allAnswered = true;
+
+                // Собираем ответы
+                for (let i = 0; i < 6; i++) {
+                    const answer = document.getElementById(`answer-${i}`).value.trim();
+                    if (!answer) {
+                        allAnswered = false;
+                        break;
+                    }
+                    answers.push(answer);
+                }
+
+                if (!allAnswered) {
+                    alert('Пожалуйста, ответьте на все вопросы!');
+                    return;
+                }
+
+                // Показываем загрузку
+                loadingDiv.style.display = 'block';
+                resultsDiv.innerHTML = '';
+
+                // Отправляем ответы на сервер
+                fetch('http://localhost:5000/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ answers: answers })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    if (data.error) {
+                        resultsDiv.innerHTML = `<p style="color: red;">Ошибка: ${data.error}</p>`;
+                    } else {
+                        resultsDiv.innerHTML = `<h2>Рекомендуемые факультеты:</h2><p>${data.recommendations}</p>`;
+                    }
+                })
+                .catch(error => {
+                    loadingDiv.style.display = 'none';
+                    resultsDiv.innerHTML = `<p style="color: red;">Произошла ошибка: ${error.message}</p>`;
+                });
+            });
+        });
+    </script>
 </body>
 </html>

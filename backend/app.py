@@ -73,7 +73,8 @@ def analyze_answers():
         # Инициализация GigaChat с авторизацией
         giga = GigaChat(
             credentials=os.getenv("GIGACHAT_CREDENTIALS"),  # Ключ из .env
-            verify_ssl_certs=False  # Для тестирования, в продакшене уберите
+            scope="GIGACHAT_API_PERS",
+            verify_ssl_certs=False  # Для тестирования
         )
 
         # Отправка запроса
